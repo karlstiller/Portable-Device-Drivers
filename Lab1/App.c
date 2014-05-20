@@ -61,10 +61,11 @@ void vTimerInterrupt( void )
 int main(void)
 {
 	API_IO_bInitIO();
-	API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
+	//API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
 
 	while( 1 )
 	{
+		API_IO_bWriteLEDs( API_IO_bReadSwitches() );
         /* The operational code is contained in the interrupt functions */
 	}
     /* Be nice to the compiler */
