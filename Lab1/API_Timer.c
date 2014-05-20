@@ -34,3 +34,13 @@ UINT8 API_Timer_bInitializeTimer( void ( *pTimerFunc)( void ), UINT8 bVal )
 	return 0;
 }
 
+UINT8 API_Timer_bGenerate_Interrupt( void )
+{
+	return PRT_Timer_bGenerate_Interrupt( );
+}
+
+UINT8 API_Timer_bTest_Callback( void )
+{
+	return PRT_Timer_bTest_Callback( );
+}
+

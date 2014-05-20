@@ -11,6 +11,8 @@
 
 UINT8 PRT_Timer_Set_Callback( void ( *pTimerFunc)( void ) );
 UINT8 PRT_Timer_InitializeTimer( UINT8 bVal );
+UINT8 PRT_Timer_bGenerate_Interrupt( void );
+UINT8 PRT_Timer_bTest_Callback( void );
 
 /* vectors in AVR are hard coded to a function by name */
 extern void ISR_TIMER0_COMPA (void) __attribute__ ((interrupt));

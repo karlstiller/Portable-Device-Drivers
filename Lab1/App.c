@@ -8,6 +8,7 @@
 #include "Port.h"
 #include "API_IO.h"
 #include "API_Timer.h"
+#include "PORT_Timer.h"
 
 #define DELAY_VAL   ( 0x1A )
 
@@ -48,7 +49,7 @@ void vTimerInterrupt( void )
 	}
 	API_IO_bWriteLEDs( bLEDS );
 	*/
-	API_IO_bWriteLEDs( 0xA5 );
+	API_IO_bWriteLEDs( 0x55 );
 }
 
 
@@ -61,11 +62,20 @@ void vTimerInterrupt( void )
 int main(void)
 {
 	API_IO_bInitIO();
-	//API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
+	if( PRT_Timer_Set_Callback( vTimerInterrupt ) == 0 ) 
+	{
+		if( PRT_Timer_InitializeTimer( DELAY_VAL ) == 0 )
+		{
+			//PRT_Timer_bGenerate_Interrupt();
+			if( API_Timer_bTest_Callback() == 1)
+			{
+				API_IO_bWriteLEDs( 0xFF );
+			}
+		}
+	}
 
 	while( 1 )
 	{
-		API_IO_bWriteLEDs( API_IO_bReadSwitches() );
         /* The operational code is contained in the interrupt functions */
 	}
     /* Be nice to the compiler */

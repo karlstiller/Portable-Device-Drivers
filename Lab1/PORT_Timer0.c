@@ -37,9 +37,6 @@ UINT8 PRT_Timer_InitializeTimer( UINT8 bVal )
 	/* Enable Output Timer Overflow Interrupt Counter 0 */
 	WRITEREG8(TIMSK0, TIMSK0_OCIE0A );
 	
-	/* Debug function */
-	WRITEREG8( TCCR0B, TCCR0B_FOC0A );
-	
 	/* Enable Global Interrupts */
 	sei();
 
@@ -59,6 +56,25 @@ UINT8 PRT_Timer_Set_Callback( void ( *pTimerFunc)( void ) )
 	return 0;
 }
 
+UINT8 PRT_Timer_bGenerate_Interrupt( void )
+{
+	/* Force a Output compare match interrupt */
+	WRITEREG8( TCCR0B, TCCR0B_FOC0A );
+	return 0;
+}
+
+UINT8 PRT_Timer_bTest_Callback( void )
+{
+	/* Make sure the function pointer is valid before calling */
+	if ( pTimerAppFunc )
+	{
+		//  Call application space function 
+		pTimerAppFunc();
+		return 0;
+	}	
+	return 1;
+}
+
 
 /* Timer 0 Compare B Interrupt */
 void ISR_TIMER0_COMPA (void)
@@ -66,7 +82,7 @@ void ISR_TIMER0_COMPA (void)
 	/* Make sure the function pointer is valid before calling */
 	if ( pTimerAppFunc )
 	{
-		/* Call application space function */
+		//  Call application space function 
 		pTimerAppFunc();
 	}
 }
