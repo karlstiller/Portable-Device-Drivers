@@ -8,16 +8,15 @@
 #include "Port.h"
 #include "API_IO.h"
 #include "API_Timer.h"
-#include "PORT_Timer.h"
 
 #define DELAY_VAL   ( 0x1A )
 
-UINT8 bDir, bPrevDir = 1;
-UINT8 bLEDS = 0x01;
+UINT8 bDir = 1;
+UINT8 bPrevDir = 1;
+UINT8 bLEDS = 1;
 
 void vTimerInterrupt( void )
 {
-	/*
 	// If key press matches count value for the key release 
 	if (( bLEDS == API_IO_bReadSwitches( )) && ( bLEDS != 0 ))
 	{
@@ -48,8 +47,6 @@ void vTimerInterrupt( void )
 		}
 	}
 	API_IO_bWriteLEDs( bLEDS );
-	*/
-	API_IO_bWriteLEDs( 0x55 );
 }
 
 
@@ -62,17 +59,16 @@ void vTimerInterrupt( void )
 int main(void)
 {
 	API_IO_bInitIO();
-	//if( PRT_Timer_Set_Callback( vTimerInterrupt ) == 0 ) 
-	//{
-		if( PRT_Timer_InitializeTimer( DELAY_VAL ) == 0 )
+	if( API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL ) == 0 )
+	{
+		/* Enable Global Interrupts */
+		//sei();
+
+		/*if( API_Timer_bTest_Callback() == 1)
 		{
-			PRT_Timer_bGenerate_Interrupt();
-			//if( API_Timer_bTest_Callback() == 1)
-			//{
-				//API_IO_bWriteLEDs( 0xFF );
-			//}
-		}
-	//}
+			API_IO_bWriteLEDs( 0xAA );
+		}*/
+	}
 
 	while( 1 )
 	{

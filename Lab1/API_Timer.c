@@ -22,12 +22,12 @@
 UINT8 API_Timer_bInitializeTimer( void ( *pTimerFunc)( void ), UINT8 bVal )
 {
 	/* Set application callback function */
-	if( PRT_Timer_Set_Callback( pTimerFunc ) )
+	if( PRT_Timer_bSet_Callback( pTimerFunc ) )
 	{
 		return 1;
 	}
 	/* Initialize Timer */
-	if( PRT_Timer_InitializeTimer( bVal ) )
+	if( PRT_Timer_bInitializeTimer( bVal ) )
 	{
 		return 1;
 	}

@@ -542,6 +542,7 @@
 #define PINL			( 0x109 )	/* Port L Input Pins Address */
 
 /* Interrupts */
+/*
 #define ISR_RESET			__vector_0
 #define ISR_INT0			__vector_1
 #define ISR_INT1			__vector_2
@@ -599,5 +600,5 @@
 #define ISR_USART3_RX		__vector_54
 #define ISR_USART3_UDRE		__vector_55
 #define ISR_USART3_TX		__vector_56
-
+*/
 #endif /* ATMEGA2560_H_ */
