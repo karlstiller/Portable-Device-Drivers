@@ -7,6 +7,7 @@
 #ifndef PRT_TIMER0_H_
 #define PRT_TIMER0_H_
 
+#include "ATMEGA2560.h"
 #include "Port.h"
 
 UINT8 PRT_Timer_Set_Callback( void ( *pTimerFunc)( void ) );

@@ -16,6 +16,8 @@
 /* Function pointer to application function */
 void ( *pTimerAppFunc)( void ) = 0;
 
+extern void vTimerInterrupt( void );
+
 /**********************/
 /* Functions / (ISRs) */
 /**********************/
@@ -75,28 +77,37 @@ UINT8 PRT_Timer_bTest_Callback( void )
 	return 1;
 }
 
+void test (void)
+{
+	if( pTimerAppFunc == vTimerInterrupt )
+		PRT_IO_bWriteLEDs( 0x04 );
+	else
+		PRT_IO_bWriteLEDs( 0x05 );
+}
+
 
 /* Timer 0 Compare B Interrupt */
 void ISR_TIMER0_COMPA (void)
 {
 	/* Make sure the function pointer is valid before calling */
-	if ( pTimerAppFunc )
-	{
-		//  Call application space function 
-		pTimerAppFunc();
-	}
+	//if ( pTimerAppFunc )
+	//{
+		//  Call application space function
+		//pTimerAppFunc();
+	//}
+	test();
 }
 
 /* Timer 0 Compare B Interrupt */
 void ISR_TIMER0_COMPB (void)
 {
-	
+	PRT_IO_bWriteLEDs( 0x02 );
 }
 
 /* Timer 0 Overflow ISR*/
 void ISR_TIMER0_OVF (void)
 {
-	
+	PRT_IO_bWriteLEDs( 0x03 );
 }
 
 

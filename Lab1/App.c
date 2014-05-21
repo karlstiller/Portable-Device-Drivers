@@ -62,17 +62,17 @@ void vTimerInterrupt( void )
 int main(void)
 {
 	API_IO_bInitIO();
-	if( PRT_Timer_Set_Callback( vTimerInterrupt ) == 0 ) 
-	{
+	//if( PRT_Timer_Set_Callback( vTimerInterrupt ) == 0 ) 
+	//{
 		if( PRT_Timer_InitializeTimer( DELAY_VAL ) == 0 )
 		{
-			//PRT_Timer_bGenerate_Interrupt();
-			if( API_Timer_bTest_Callback() == 1)
-			{
-				API_IO_bWriteLEDs( 0xFF );
-			}
+			PRT_Timer_bGenerate_Interrupt();
+			//if( API_Timer_bTest_Callback() == 1)
+			//{
+				//API_IO_bWriteLEDs( 0xFF );
+			//}
 		}
-	}
+	//}
 
 	while( 1 )
 	{
