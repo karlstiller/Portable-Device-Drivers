@@ -2,7 +2,7 @@
  * PRT_IO.h
  *
  * Created: 19/05/2014 22:13:36
- *  Author: Karl
+ * Author: Karl Stiller
  */ 
 #ifndef PRT_IO_H_
 #define PRT_IO_H_
@@ -18,6 +18,5 @@
 UINT8 PRT_IO_bInitIO( void );
 UINT8 PRT_IO_bReadSwitches( void );
 UINT8 PRT_IO_bWriteLEDs( UINT8 bVal );
-
 
 #endif /* PRT_IO_H_ */

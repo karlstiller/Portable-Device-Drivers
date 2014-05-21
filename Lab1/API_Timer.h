@@ -2,7 +2,7 @@
  * API_Timer.h
  *
  * Created: 19/05/2014 22:44:48
- *  Author: Karl
+ * Author: Karl Stiller
  */ 
 
 
