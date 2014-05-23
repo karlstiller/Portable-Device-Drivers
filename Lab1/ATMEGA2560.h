@@ -451,12 +451,16 @@
 
 #define UBRR0H			( 0xC5 )	/* USART Baud Rate Registers 0 H */
 #define UBRR0L			( 0xC4 )	/* USART Baud Rate Registers 0 L*/
+#define UBRR0			( 0xC4 )	/* USART Baud Rate Registers 0 */
 #define UBRR1H			( 0xCD )	/* USART Baud Rate Registers 1 H */
 #define UBRR1L			( 0xCC )	/* USART Baud Rate Registers 1 L*/
+#define UBRR1			( 0xCC )	/* USART Baud Rate Registers 1 */
 #define UBRR2H			( 0xD5 )	/* USART Baud Rate Registers 2 H */
 #define UBRR2L			( 0xD4 )	/* USART Baud Rate Registers 2 L*/
+#define UBRR2			( 0xD4 )	/* USART Baud Rate Registers 2 */
 #define UBRR3H			( 0x135 )	/* USART Baud Rate Registers 3 H */
 #define UBRR3L			( 0x134 )	/* USART Baud Rate Registers 3 L*/
+#define UBRR3			( 0x134 )	/* USART Baud Rate Registers 3 */
 
 
 /* EEPROM */
