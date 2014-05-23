@@ -32,9 +32,13 @@ U8 bLEDS = 1;
  * Functions          *
  **********************/
 
-UINT16 wCalcBaud ( UINT16 wBaudRate)
+UINT8 wCalcBaud ( UINT16 wBaudRate)
 {
-	return (CPU_OSC / ( 16 * wBaudRate)) - 1;
+	UINT32 bTemp = CPU_OSC;
+	bTemp = bTemp / 16;
+	bTemp = bTemp / wBaudRate;
+	bTemp--;
+	return bTemp;
 }
 
 UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY eParity )
