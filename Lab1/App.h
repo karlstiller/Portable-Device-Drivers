@@ -37,7 +37,10 @@ typedef enum
 
 UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY eParity );
 UINT8 bSendByte( UINT8 bByte );
+UINT8 bSendStr( SINT8 *abBuff );
 UINT8 bRecvByte( void );
-
+UINT8 bWriteBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes );
+UINT8 bReadBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes );
+UINT8 bCalcCRC( UINT8 *abBuff, UINT8 bSizeBuff );
 
 #endif /* APP_H_ */

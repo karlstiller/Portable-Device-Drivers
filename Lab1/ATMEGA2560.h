@@ -466,7 +466,8 @@
 /* EEPROM */
 
 /* Use 16 bit access to this register */
-/* #define EEARH 		( 0x42 )	 * EEPROM Address Register H */
+#define EEARH 			( 0x42 )	/* EEPROM Address Register H */
+#define EEARL			( 0x41 )	/* EEPROM Address Register L */
 #define EEAR			( 0x41 )	/* EEPROM Address Register */
 #define EEAR_EEAR11		( 1 << 11 )	/* Address Bit 11 */
 #define EEAR_EEAR10		( 1 << 10 )	/* Address Bit 10 */

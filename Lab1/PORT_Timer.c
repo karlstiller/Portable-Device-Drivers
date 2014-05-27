@@ -48,8 +48,6 @@ UINT8 PRT_Timer_bInitializeTimer( UINT8 bVal )
 	/* Enable Output Timer Output Compare Match A Interrupt Enable */
 	WRITEREG8(TIMSK0, TIMSK0_OCIE0A );
 
-	/* Enable Global Interrupts */
-	sei();	
 	/* Timer function executed correctly, return success */
 	return 0;
 }
