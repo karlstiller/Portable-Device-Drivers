@@ -17,6 +17,8 @@
 #define URT_MIN_STOP_BITS ( 1 )
 #define URT_MAX_STOP_BITS ( 2 )
 
+#define BACKSPACE (8)
+
 /* Note that I am deliberately defining different variable types for the
  * application space
  */

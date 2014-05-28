@@ -416,20 +416,42 @@ int main(void)
 				bRxCtrl = 1;
 				break;
 			}
-			case 'Z':
-			case 'z':
+			case BACKSPACE:
+			{
+				sControlEeprom.wNoBytesUsed--;
+				bUpdateControlStructEeprom();
+			}
+			case '?':
 			{
 				if( bRxCtrl )
 				{
-					bRecord = bRecord ^ 1;
-					bRxCtrl = 0;
+					U16 wNrBytes = sControlEeprom.wNoBytesUsed;
+					U8 abNrBytesStr[30];
+					U8 bTemp;
 					bSaveByte = 0;
-					if( bRecord )
-					{
-						sControlEeprom.wNoBytesUsed = 0;						
-					}
+					/* Tens of thousands */
+					bTemp = wNrBytes / 10000;
+					wNrBytes -= bTemp * 10000;
+					abNrBytesStr[0] = '0' + bTemp;
+					/* Thousands */
+					bTemp = wNrBytes / 1000;
+					wNrBytes -= bTemp * 1000;
+					abNrBytesStr[1] = '0' + bTemp;
+					/* Hundreds */
+					bTemp = wNrBytes / 100;
+					wNrBytes -= bTemp * 100;
+					abNrBytesStr[2] = '0' + bTemp;
+					/* Tens */
+					bTemp = wNrBytes / 10;
+					wNrBytes -= bTemp * 10;
+					abNrBytesStr[3] = '0' + bTemp;
+					/* Unit */
+					abNrBytesStr[4] = '0' + wNrBytes;
+					abNrBytesStr[5] = '\r';
+					abNrBytesStr[5] = '\n';
+					abNrBytesStr[5] = 0;
+					bSendStr((S8 *)abNrBytesStr);
 				}
-				break;
 			}
 			case 'Y':
 			case 'y':
@@ -442,6 +464,22 @@ int main(void)
 				}				
 				break;
 			}
+			case 'Z':
+			case 'z':
+			{
+				if( bRxCtrl )
+				{
+					bRecord = bRecord ^ 1;
+					bRxCtrl = 0;
+					bSaveByte = 0;
+					if( bRecord )
+					{
+						sControlEeprom.wNoBytesUsed = 0;
+					}
+				}
+				break;
+			}
+			
 			default:
 				bRxCtrl = 0;
 				break;	
@@ -472,6 +510,7 @@ int main(void)
 					if( bReadByteEEPROM( i, &bTxByte ) == 0 ) 
 					{
 						bSendByte( bTxByte );
+						delay( 100 );
 					}
 				}
 				bPlayback = 0;
