@@ -379,7 +379,7 @@ int main(void)
 	if( bInitUart( 9600, 8, 1, URT_NO_PARITY ) == 0 )
 	{
 		API_IO_bInitIO();
-		API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
+		//API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
 	}
 	else
 	{
@@ -418,8 +418,14 @@ int main(void)
 			}
 			case BACKSPACE:
 			{
-				sControlEeprom.wNoBytesUsed--;
-				bUpdateControlStructEeprom();
+				if( sControlEeprom.wNoBytesUsed )
+				{
+					sControlEeprom.wNoBytesUsed--;
+					bUpdateControlStructEeprom();
+					API_IO_bWriteLEDs( sControlEeprom.wNoBytesUsed );
+					bSaveByte = 0;
+					bRxCtrl = 0;
+				}
 			}
 			case '?':
 			{
@@ -447,6 +453,7 @@ int main(void)
 					abNrBytesStr[3] = '0' + bTemp;
 					/* Unit */
 					abNrBytesStr[4] = '0' + wNrBytes;
+					/* New Line */
 					abNrBytesStr[5] = '\r';
 					abNrBytesStr[5] = '\n';
 					abNrBytesStr[5] = 0;
@@ -485,6 +492,7 @@ int main(void)
 				break;	
 		}
 		bSendByte( bRxByte );
+		
 		if( bSaveByte && bRecord )
 		{
 			if( bAddByteBuffer( bRxByte, &sEepromBuff ) == 0 )
