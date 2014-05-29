@@ -264,8 +264,8 @@ UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY
 	}
 	else
 	{
-		/* Enable receiver and transmitter */
-		WRITEREG8( UCSR0B, UCSR0B_RXEN0 | UCSR0B_TXEN0 );
+		/* Enable tx, rx and all interrupts */
+		WRITEREG8( UCSR0B, UCSR0B_RXCIE0 | UCSR0B_TXCIE0 | UCSR0B_UDRIE0 | UCSR0B_RXEN0 | UCSR0B_TXEN0 );
 		bUCSRC |= (bNoDataBits - 5) << 1;
 	}
 	WRITEREG8( UCSR0A, UCSR0A_U2X0 );
@@ -313,6 +313,7 @@ void ISR_USART0_RX( void )
 	
 	/* Get byte */
 	UINT8 bRxByte = READREG8( UDR0 );
+	API_IO_bWriteLEDs( bRxByte );
 	/* Add byte to Keyboard Buffer */
 	bAddByteBuffer( bRxByte, &sKbdBuff );
 	
@@ -429,6 +430,8 @@ void ISR_USART0_RX( void )
 		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, bRxByte );
 		bUpdateControlStructEeprom();
 	}
+	bRemoveByteBuffer( &bRxByte, &sKbdBuff );
+	bSendByte( bRxByte );
 }
 
 /* Function to send recorded data back */
@@ -460,10 +463,10 @@ void ISR_USART0_UDRE( void )
 {
 	UINT8 bTxByte;
 	if( bRemoveByteBuffer( &bTxByte, &sKbdBuff ) == 0 )
-	 {
+	{
 		/* Send byte */
 		WRITEREG8( UDR0, bTxByte );
-	 }
+	}
 }
 
 /*******************************************
@@ -545,6 +548,7 @@ int main(void)
 	}
 	while( 1 )
 	{
+		delay( 0xFFFF );
 	}
     /* Be nice to the compiler */
 	return 0;
