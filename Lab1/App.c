@@ -32,7 +32,11 @@
 U8 bDir = 1;
 U8 bPrevDir = 1;
 U8 bLEDS = 1;
-U16 bNrInts;
+U8 bPlayback;
+U8 bRecord;
+U8 bTxFlag;
+U16 wTxAddressEeprom;
+U8 bValidRecording;
 
 /**********************
  * Functions          *
@@ -42,24 +46,8 @@ U16 bNrInts;
  * EEPROM              *
  **********************/
 
-/* Structure to use with circular buffer */
-typedef struct
-{
-	UINT8  abBuffer[4096];
-	UINT16 wMask;
-	UINT16 wInsertion;
-	UINT16 wRemoval;
-} tsBuffCirc;
-
-tsBuffCirc sEepromBuff;
-
-/* Structure to control use with EEPROM */
-/* Maximum of 8 bytes (1 page of EEPROM ) */
-typedef struct
-{
-	UINT16  wNoBytesUsed;
-	UINT8   bCRC;
-}tsControlEeprom;
+UINT8  bEepromBuff[EEPROM_CTRL_ADD];
+UINT16 wNoEepromBuff;
 
 tsControlEeprom sControlEepromBackup;
 tsControlEeprom sControlEeprom;
@@ -212,9 +200,17 @@ UINT8 bWriteBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes )
 	return 0;
 }
 
+UINT8 bInitEeprom( void )
+{
+	wNoEepromBuff = 0;
+	return 0;
+}
+
 /**********************
- * USART               *
+ * USART              *
  **********************/
+ 
+tsBuffCirc sKbdBuff;
  
 UINT16 wCalcBaud ( UINT16 wBaudRate)
 {
@@ -227,7 +223,12 @@ UINT16 wCalcBaud ( UINT16 wBaudRate)
 
 UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY eParity )
 {
-	UINT8 bUCSRC;	
+	/* App Level */
+	bPlayback = 0;
+	bRecord = 0;
+	bTxFlag = 0;
+	
+	UINT8 bUCSRC;
 	/* Parameter range checking */
 	if (( wBaudRate < URT_MIN_BAUD ) || 
 	    ( wBaudRate > URT_MAX_BAUD)) /* Limits for 1MHz clock */
@@ -303,7 +304,168 @@ UINT8 bRecvByte( void )
 	/* Receive byte */
 	return READREG8( UDR0 );
 }
- 
+
+void ISR_USART0_RX( void )
+{
+	static UINT8 bRxCtrl = 0;
+	UINT8 bSaveByte = 1;
+	UINT8 bCarriageExtension = 0;
+	
+	/* Get byte */
+	UINT8 bRxByte = READREG8( UDR0 );
+	/* Add byte to Keyboard Buffer */
+	bAddByteBuffer( bRxByte, &sKbdBuff );
+	
+	/* Check what needs to be done for this byte */
+	switch ( bRxByte )
+	{
+		/* Carriage feed extension characters */
+		case '\r':
+		{
+			bAddByteBuffer( '\n', &sKbdBuff );
+			if( bRecord )
+			{
+				bCarriageExtension = 1; 
+			}
+			bRxCtrl = 0;
+			break;
+		}
+		case '\n':
+		{
+			bAddByteBuffer( '\r', &sKbdBuff );
+			if( bRecord )
+			{
+				bCarriageExtension = 1;
+			}			
+			bRxCtrl = 0;
+			break;
+		}
+		case '^':
+		{
+			bRxCtrl = 1;
+			break;
+		}
+		case BACKSPACE:
+		{
+			if( sControlEeprom.wNoBytesUsed )
+			{
+				sControlEeprom.wNoBytesUsed--;
+				bUpdateControlStructEeprom();
+			}
+			bSaveByte = 0;
+			bRxCtrl = 0;
+		}
+		case '?':
+		{
+			if( bRxCtrl )
+			{
+				U16 wNrBytes = sControlEeprom.wNoBytesUsed;
+				U8 bTemp;
+				bSaveByte = 0;
+				/* Tens of thousands */
+				bTemp = wNrBytes / 10000;
+				wNrBytes -= bTemp * 10000;
+				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
+				/* Thousands */
+				bTemp = wNrBytes / 1000;
+				wNrBytes -= bTemp * 1000;
+				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
+				/* Hundreds */
+				bTemp = wNrBytes / 100;
+				wNrBytes -= bTemp * 100;
+				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
+				/* Tens */
+				bTemp = wNrBytes / 10;
+				wNrBytes -= bTemp * 10;
+				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
+				/* Unit */
+				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
+				/* New Line */
+				bAddByteBuffer( '\r', &sKbdBuff );
+				bAddByteBuffer( '\n', &sKbdBuff );
+			}
+		}
+		case 'Y':
+		case 'y':
+		{
+			if( bRxCtrl )
+			{
+				bPlayback = 1;
+				bRxCtrl = 0;
+				bSaveByte = 0;
+				wTxAddressEeprom = 0;
+			}
+			break;
+		}
+		case 'Z':
+		case 'z':
+		{
+			if( bRxCtrl )
+			{
+				bRecord = bRecord ^ 1;
+				bRxCtrl = 0;
+				bSaveByte = 0;
+				if( bRecord )
+				{
+					sControlEeprom.wNoBytesUsed = 0;
+					
+				}
+			}
+			break;
+		}			
+		default:
+		{
+			bRxCtrl = 0;
+		}
+	}
+	if( bCarriageExtension )
+	{
+		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\r' );
+		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\n' );
+		bUpdateControlStructEeprom();
+	}
+	else if( bRecord && bSaveByte )
+	{
+		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, bRxByte );
+		bUpdateControlStructEeprom();
+	}
+}
+
+/* Function to send recorded data back */
+void ISR_USART0_TX( void )
+{
+	if( bPlayback )
+	{
+		if( bValidRecording )
+		{
+			UINT8 bTxByte;			
+			/* Send Recorded byte */
+			if( bReadByteEEPROM( wTxAddressEeprom, &bTxByte ) == 0 )
+			{
+				/* Send byte */
+				WRITEREG8( UDR0, bTxByte );
+				/* Reached end of saved buffer? */
+				if( wTxAddressEeprom >= sControlEeprom.wNoBytesUsed )
+				{
+					/* Stop sending buffer */
+					bPlayback = 0;
+				}
+			}
+		}
+	}
+}
+
+/* Function to send echo */
+void ISR_USART0_UDRE( void )
+{
+	UINT8 bTxByte;
+	if( bRemoveByteBuffer( &bTxByte, &sKbdBuff ) == 0 )
+	 {
+		/* Send byte */
+		WRITEREG8( UDR0, bTxByte );
+	 }
+}
+
 /*******************************************
  * void vTimerInterrupt( void )
  * Brief: Application callback function
@@ -343,10 +505,6 @@ void vTimerInterrupt( void )
 		}
 	}
 	API_IO_bWriteLEDs( bLEDS );
-	if( bNrInts > 0 )
-	{
-		bNrInts--;
-	}
 }
 
 void delay(unsigned int val)
@@ -367,19 +525,12 @@ void delay(unsigned int val)
  *******************************************/
 int main(void)
 {
-	U8 bRxCtrl = 0;
-	U8 bRecord = 0;
-	U8 bPlayback = 0;
-	U8 bValidRecording = 0;
-	U8 bSaveByte;
-	U8 bTxByte;
-	bNrInts = 10000;
-	vInitCircularBuff( &sEepromBuff );
+	vInitCircularBuff( &sKbdBuff );
 	/* Setup UART for 9600, 8 bits, one stop, no parity bit */
 	if( bInitUart( 9600, 8, 1, URT_NO_PARITY ) == 0 )
 	{
 		API_IO_bInitIO();
-		//API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
+		API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
 	}
 	else
 	{
@@ -394,136 +545,6 @@ int main(void)
 	}
 	while( 1 )
 	{
-		bSaveByte = 1;
-		U8 bRxByte = bRecvByte();
-		switch ( bRxByte )
-		{
-			case '\r':
-			{
-				bSendByte( '\n' );
-				bRxCtrl = 0;
-				break;
-			}
-			case '\n':
-			{
-				bSendByte( '\r' );
-				bRxCtrl = 0;
-				break;
-			}
-			case '^':
-			{
-				bSaveByte = 0;
-				bRxCtrl = 1;
-				break;
-			}
-			case BACKSPACE:
-			{
-				if( sControlEeprom.wNoBytesUsed )
-				{
-					sControlEeprom.wNoBytesUsed--;
-					bUpdateControlStructEeprom();
-					API_IO_bWriteLEDs( sControlEeprom.wNoBytesUsed );
-					bSaveByte = 0;
-					bRxCtrl = 0;
-				}
-			}
-			case '?':
-			{
-				if( bRxCtrl )
-				{
-					U16 wNrBytes = sControlEeprom.wNoBytesUsed;
-					U8 abNrBytesStr[30];
-					U8 bTemp;
-					bSaveByte = 0;
-					/* Tens of thousands */
-					bTemp = wNrBytes / 10000;
-					wNrBytes -= bTemp * 10000;
-					abNrBytesStr[0] = '0' + bTemp;
-					/* Thousands */
-					bTemp = wNrBytes / 1000;
-					wNrBytes -= bTemp * 1000;
-					abNrBytesStr[1] = '0' + bTemp;
-					/* Hundreds */
-					bTemp = wNrBytes / 100;
-					wNrBytes -= bTemp * 100;
-					abNrBytesStr[2] = '0' + bTemp;
-					/* Tens */
-					bTemp = wNrBytes / 10;
-					wNrBytes -= bTemp * 10;
-					abNrBytesStr[3] = '0' + bTemp;
-					/* Unit */
-					abNrBytesStr[4] = '0' + wNrBytes;
-					/* New Line */
-					abNrBytesStr[5] = '\r';
-					abNrBytesStr[5] = '\n';
-					abNrBytesStr[5] = 0;
-					bSendStr((S8 *)abNrBytesStr);
-				}
-			}
-			case 'Y':
-			case 'y':
-			{
-				if( bRxCtrl )
-				{
-					bPlayback = 1;
-					bRxCtrl = 0;
-					bSaveByte = 0;
-				}				
-				break;
-			}
-			case 'Z':
-			case 'z':
-			{
-				if( bRxCtrl )
-				{
-					bRecord = bRecord ^ 1;
-					bRxCtrl = 0;
-					bSaveByte = 0;
-					if( bRecord )
-					{
-						sControlEeprom.wNoBytesUsed = 0;
-					}
-				}
-				break;
-			}
-			
-			default:
-				bRxCtrl = 0;
-				break;	
-		}
-		bSendByte( bRxByte );
-		
-		if( bSaveByte && bRecord )
-		{
-			if( bAddByteBuffer( bRxByte, &sEepromBuff ) == 0 )
-			{
-				if( bRemoveByteBuffer( &bRxByte, &sEepromBuff ) == 0 )
-				{
-					if( bWriteByteEEPROM( sControlEeprom.wNoBytesUsed, bRxByte ) == 0 )
-					{
-						sControlEeprom.wNoBytesUsed++;
-						bUpdateControlStructEeprom();
-						bValidRecording = 1;
-					}
-				}
-			}
-		}
-		if( bPlayback )
-		{
-			if( bValidRecording )
-			{
-				for( U16 i = 0; i < sControlEeprom.wNoBytesUsed; i++ )
-				{
-					/* Send Recorded bytes */
-					if( bReadByteEEPROM( i, &bTxByte ) == 0 ) 
-					{
-						bSendByte( bTxByte );
-						delay( 100 );
-					}
-				}
-				bPlayback = 0;
-			}
-		}
 	}
     /* Be nice to the compiler */
 	return 0;

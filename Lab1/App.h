@@ -29,6 +29,22 @@
 #define U8 unsigned char
 #define S8 signed char
 
+/* Structure to control use with EEPROM */
+typedef struct
+{
+	UINT16  wNoBytesUsed;
+	UINT8   bCRC;
+}tsControlEeprom;
+
+/* Structure to use with circular buffer */
+typedef struct
+{
+	UINT8  abBuffer[32];
+	UINT16 wMask;
+	UINT16 wInsertion;
+	UINT16 wRemoval;
+} tsBuffCirc;
+
 typedef enum 
 {
 	URT_NO_PARITY = 0,
@@ -44,5 +60,10 @@ UINT8 bRecvByte( void );
 UINT8 bWriteBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes );
 UINT8 bReadBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes );
 UINT8 bCalcCRC( UINT8 *abBuff, UINT8 bSizeBuff );
+
+/* vectors in AVR are hard coded to a function by name */
+extern void ISR_USART0_RX (void) __attribute__ ((interrupt));	/* USART0 Rx Complete */
+extern void ISR_USART0_UDRE (void) __attribute__ ((interrupt));	/* USART0 Data Register Empty */
+extern void ISR_USART0_TX (void) __attribute__ ((interrupt));	/* USART0 Tx Complete */
 
 #endif /* APP_H_ */
