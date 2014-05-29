@@ -17,7 +17,7 @@
 #define URT_MIN_STOP_BITS ( 1 )
 #define URT_MAX_STOP_BITS ( 2 )
 
-#define BACKSPACE (0x7F) /* On my keyboard it is 'DEL' and not 0x08 'BS'
+#define BACKSPACE (0x7F) /* On my keyboard it is 'DEL' and not 0x08 'BS' */
 
 /* Note that I am deliberately defining different variable types for the
  * application space

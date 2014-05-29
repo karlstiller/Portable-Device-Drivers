@@ -250,7 +250,7 @@ UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY
 		return 1;
 	}
 	
-	/* Set baud rate */	WRITEREG16( UBRR2, wCalcBaud( wBaudRate ) );
+	/* Set baud rate */	WRITEREG16( UBRR0, wCalcBaud( wBaudRate ) );
 	
 	/* Calculate UCSRxC value */
 	bUCSRC = eParity << 4;
@@ -258,17 +258,17 @@ UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY
 	if( bNoDataBits > 8 )
 	{
 		/* Enable receiver, transmitter, and 9 bits */
-		WRITEREG8( UCSR2B, UCSR2B_RXEN2 | UCSR2B_TXEN2 | UCSR2B_UCSZ22 );
-		bUCSRC |= UCSR2C_UCSZ21 | UCSR2C_UCSZ20;
+		WRITEREG8( UCSR0B, UCSR0B_RXEN0 | UCSR0B_TXEN0 | UCSR0B_UCSZ02 );
+		bUCSRC |= UCSR0C_UCSZ01 | UCSR0C_UCSZ00;
 	}
 	else
 	{
 		/* Enable receiver and transmitter */
-		WRITEREG8( UCSR2B, UCSR2B_RXEN2 | UCSR2B_TXEN2 );
+		WRITEREG8( UCSR0B, UCSR0B_RXEN0 | UCSR0B_TXEN0 );
 		bUCSRC |= (bNoDataBits - 5) << 1;
 	}
-	WRITEREG8( UCSR2A, UCSR2A_U2X2 );
-	WRITEREG8( UCSR2C, bUCSRC );
+	WRITEREG8( UCSR0A, UCSR0A_U2X0 );
+	WRITEREG8( UCSR0C, bUCSRC );
 	return 0;
 }
 
@@ -290,18 +290,18 @@ UINT8 bSendStr( SINT8 *abBuff )
 UINT8 bSendByte( UINT8 bByte )
 {
 	/* Wait for empty buffer */
-	while( ! ( READREG8( UCSR2A ) & UCSR2A_UDRE2 ));
+	while( ! ( READREG8( UCSR0A ) & UCSR0A_UDRE0 ));
 	/* Send byte */
-	WRITEREG8( UDR2, bByte );
+	WRITEREG8( UDR0, bByte );
 	return 0;
 }
 
 UINT8 bRecvByte( void )
 {
 	/* Wait for data to arrive */
-	while( ! (READREG8( UCSR2A ) & UCSR2A_RXC2 ));
+	while( ! (READREG8( UCSR0A ) & UCSR0A_RXC0 ));
 	/* Receive byte */
-	return READREG8( UDR2 );
+	return READREG8( UDR0 );
 }
  
 /*******************************************
