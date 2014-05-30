@@ -574,8 +574,8 @@
 #define ISR_TIMER0_OVF		__vector_23
 #define ISR_SPI_STC			__vector_24
 #define ISR_USART0_RX		__vector_25
-#define ISR_USART0_UDRE		__vector_26
-#define ISR_USART0_TX		__vector_27
+#define ISR_USART0_UDRE     __vector_26
+#define ISR_USART0_TX       __vector_27
 #define ISR_ANALOG_COMP		__vector_28
 #define ISR_ADC				__vector_29
 #define ISR_EE_READY		__vector_30

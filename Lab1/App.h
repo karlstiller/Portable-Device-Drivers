@@ -62,8 +62,11 @@ UINT8 bReadBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes );
 UINT8 bCalcCRC( UINT8 *abBuff, UINT8 bSizeBuff );
 
 /* vectors in AVR are hard coded to a function by name */
-extern void ISR_USART0_RX (void) __attribute__ ((interrupt));	/* USART0 Rx Complete */
-extern void ISR_USART0_UDRE (void) __attribute__ ((interrupt));	/* USART0 Data Register Empty */
-extern void ISR_USART0_TX (void) __attribute__ ((interrupt));	/* USART0 Tx Complete */
+/* USART0 Rx Complete */
+extern void ISR_USART0_RX (void) __attribute__ ((interrupt));
+/* USART0 Data Register Empty */
+extern void ISR_USART0_UDRE (void) __attribute__ ((interrupt));
+/* USART0 Tx Complete */
+extern void ISR_USART0_TX (void) __attribute__ ((interrupt));
 
 #endif /* APP_H_ */

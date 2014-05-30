@@ -264,8 +264,8 @@ UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY
 	}
 	else
 	{
-		/* Enable tx, rx and all interrupts */
-		WRITEREG8( UCSR0B, UCSR0B_RXCIE0 | UCSR0B_TXCIE0 | UCSR0B_UDRIE0 | UCSR0B_RXEN0 | UCSR0B_TXEN0 );
+		/* Enable uart tx rx and rx interrupts. */
+		WRITEREG8( UCSR0B, UCSR0B_RXEN0 | UCSR0B_TXEN0 | UCSR0B_RXCIE0 );
 		bUCSRC |= (bNoDataBits - 5) << 1;
 	}
 	WRITEREG8( UCSR0A, UCSR0A_U2X0 );
@@ -311,16 +311,18 @@ void ISR_USART0_RX( void )
 	UINT8 bSaveByte = 1;
 	UINT8 bCarriageExtension = 0;
 	
-	/* Get byte */
+	// Get byte
 	UINT8 bRxByte = READREG8( UDR0 );
 	API_IO_bWriteLEDs( bRxByte );
-	/* Add byte to Keyboard Buffer */
+	//bSendByte( bRxByte );
+	/*
+	// Add byte to Keyboard Buffer 
 	bAddByteBuffer( bRxByte, &sKbdBuff );
 	
-	/* Check what needs to be done for this byte */
+	// Check what needs to be done for this byte 
 	switch ( bRxByte )
 	{
-		/* Carriage feed extension characters */
+		// Carriage feed extension characters
 		case '\r':
 		{
 			bAddByteBuffer( '\n', &sKbdBuff );
@@ -363,25 +365,25 @@ void ISR_USART0_RX( void )
 				U16 wNrBytes = sControlEeprom.wNoBytesUsed;
 				U8 bTemp;
 				bSaveByte = 0;
-				/* Tens of thousands */
+				// Tens of thousands 
 				bTemp = wNrBytes / 10000;
 				wNrBytes -= bTemp * 10000;
 				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				/* Thousands */
+				// Thousands
 				bTemp = wNrBytes / 1000;
 				wNrBytes -= bTemp * 1000;
 				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				/* Hundreds */
+				// Hundreds 
 				bTemp = wNrBytes / 100;
 				wNrBytes -= bTemp * 100;
 				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				/* Tens */
+				// Tens 
 				bTemp = wNrBytes / 10;
 				wNrBytes -= bTemp * 10;
 				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				/* Unit */
+				// Unit
 				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				/* New Line */
+				// New Line 
 				bAddByteBuffer( '\r', &sKbdBuff );
 				bAddByteBuffer( '\n', &sKbdBuff );
 			}
@@ -430,43 +432,56 @@ void ISR_USART0_RX( void )
 		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, bRxByte );
 		bUpdateControlStructEeprom();
 	}
+	//Enable Tx complete interrupt
+	WRITEREG8( UCSR0B, (READREG8(UCSR0B) | UCSR0B_TXCIE0 ));
 	bRemoveByteBuffer( &bRxByte, &sKbdBuff );
 	bSendByte( bRxByte );
+	*/
+	WRITEREG8( UCSR0B, (READREG8(UCSR0B) | UCSR0B_UDRIE0 ));
 }
 
 /* Function to send recorded data back */
 void ISR_USART0_TX( void )
 {
-	if( bPlayback )
-	{
-		if( bValidRecording )
-		{
-			UINT8 bTxByte;			
-			/* Send Recorded byte */
-			if( bReadByteEEPROM( wTxAddressEeprom, &bTxByte ) == 0 )
-			{
-				/* Send byte */
-				WRITEREG8( UDR0, bTxByte );
-				/* Reached end of saved buffer? */
-				if( wTxAddressEeprom >= sControlEeprom.wNoBytesUsed )
-				{
-					/* Stop sending buffer */
-					bPlayback = 0;
-				}
-			}
-		}
-	}
+	WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_TXCIE0) );
 }
 
 /* Function to send echo */
 void ISR_USART0_UDRE( void )
 {
+	/*
 	UINT8 bTxByte;
 	if( bRemoveByteBuffer( &bTxByte, &sKbdBuff ) == 0 )
 	{
-		/* Send byte */
+		// Send byte 
 		WRITEREG8( UDR0, bTxByte );
 	}
+	else if(( bPlayback ) && ( bValidRecording ))
+	{
+		// Send Recorded byte
+		if( bReadByteEEPROM( wTxAddressEeprom, &bTxByte ) == 0 )
+		{
+			// Send byte
+			WRITEREG8( UDR0, bTxByte );
+			// Reached end of saved buffer?
+			if( wTxAddressEeprom >= sControlEeprom.wNoBytesUsed )
+			{
+				// Stop sending buffer 
+				bPlayback = 0;
+			}
+		}
+	}
+	else
+	{
+		// Disable Tx complete interrupt
+		WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_TXCIE0) );
+	}
+	*/
+	API_IO_bWriteLEDs( 0xA5 );
+	//WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_TXCIE0) );
+	WRITEREG8( UDR0, 'A' );	
+	
+	WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_UDRIE0) );
 }
 
 /*******************************************
@@ -539,13 +554,13 @@ int main(void)
 	{
 		API_IO_bWriteLEDs( 1 );
 	}
-	PORT_bEnableInterrupts();
 	bValidRecording = !bReadControlStructEeprom();
 	if( !bValidRecording )
 	{
 		sControlEeprom.wNoBytesUsed = 0;
 		bUpdateControlStructEeprom();
 	}
+	PORT_bEnableInterrupts();
 	while( 1 )
 	{
 		delay( 0xFFFF );
