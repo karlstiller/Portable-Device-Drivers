@@ -17,7 +17,6 @@
 /* Functions          */
 /**********************/
 
-/* TODO: Calculate Max count value based on fractions of a second */
 /********************************************
  * UINT8 bInitializeTimer(					
  *			void ( *pTimerFunc)( void ),	
