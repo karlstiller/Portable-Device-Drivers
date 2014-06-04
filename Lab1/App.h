@@ -63,10 +63,12 @@ UINT8 bCalcCRC( UINT8 *abBuff, UINT8 bSizeBuff );
 
 /* vectors in AVR are hard coded to a function by name */
 /* USART0 Rx Complete */
-extern void ISR_USART0_RX (void) __attribute__ ((interrupt));
+extern void ISR_USART0_RX (void) __attribute__ ((signal));
 /* USART0 Data Register Empty */
-extern void ISR_USART0_UDRE (void) __attribute__ ((interrupt));
+extern void ISR_USART0_UDRE (void) __attribute__ ((signal));
 /* USART0 Tx Complete */
-extern void ISR_USART0_TX (void) __attribute__ ((interrupt));
+extern void ISR_USART0_TX (void) __attribute__ ((signal));
+
+extern void __vector_24 (void) __attribute__ ((signal));
 
 #endif /* APP_H_ */

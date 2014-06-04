@@ -309,13 +309,10 @@ void ISR_USART0_RX( void )
 {
 	static UINT8 bRxCtrl = 0;
 	UINT8 bSaveByte = 1;
-	UINT8 bCarriageExtension = 0;
 	
 	// Get byte
 	UINT8 bRxByte = READREG8( UDR0 );
-	API_IO_bWriteLEDs( bRxByte );
-	//bSendByte( bRxByte );
-	/*
+
 	// Add byte to Keyboard Buffer 
 	bAddByteBuffer( bRxByte, &sKbdBuff );
 	
@@ -324,28 +321,26 @@ void ISR_USART0_RX( void )
 	{
 		// Carriage feed extension characters
 		case '\r':
-		{
-			bAddByteBuffer( '\n', &sKbdBuff );
-			if( bRecord )
-			{
-				bCarriageExtension = 1; 
-			}
-			bRxCtrl = 0;
-			break;
-		}
 		case '\n':
 		{
 			bAddByteBuffer( '\r', &sKbdBuff );
+			bAddByteBuffer( '\n', &sKbdBuff );
 			if( bRecord )
 			{
-				bCarriageExtension = 1;
-			}			
+				if( sControlEeprom.wNoBytesUsed < EEPROM_CTRL_ADD )
+				{
+					bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\r' );
+					bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\n' );
+					bUpdateControlStructEeprom();
+				}
+			}
 			bRxCtrl = 0;
 			break;
 		}
 		case '^':
 		{
 			bRxCtrl = 1;
+			bSaveByte = 0;
 			break;
 		}
 		case BACKSPACE:
@@ -358,34 +353,35 @@ void ISR_USART0_RX( void )
 			bSaveByte = 0;
 			bRxCtrl = 0;
 		}
-		case '?':
+		case 'N':
+		case 'n':
 		{
 			if( bRxCtrl )
 			{
 				U16 wNrBytes = sControlEeprom.wNoBytesUsed;
-				U8 bTemp;
+				U8 bTemp[4];
 				bSaveByte = 0;
-				// Tens of thousands 
-				bTemp = wNrBytes / 10000;
-				wNrBytes -= bTemp * 10000;
-				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				// Thousands
-				bTemp = wNrBytes / 1000;
-				wNrBytes -= bTemp * 1000;
-				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				// Hundreds 
-				bTemp = wNrBytes / 100;
-				wNrBytes -= bTemp * 100;
-				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				// Tens 
-				bTemp = wNrBytes / 10;
-				wNrBytes -= bTemp * 10;
-				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
 				// Unit
-				bAddByteBuffer( ( '0' + bTemp ), &sKbdBuff );
-				// New Line 
-				bAddByteBuffer( '\r', &sKbdBuff );
-				bAddByteBuffer( '\n', &sKbdBuff );
+				bTemp[3] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[3];
+				// Tens
+				wNrBytes = wNrBytes / 10;
+				bTemp[2] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[2];
+				// Hundreds
+				wNrBytes = wNrBytes / 10;
+				bTemp[1] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[1];
+				// Thousands
+				wNrBytes = wNrBytes / 10;
+				bTemp[0] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[0];
+				
+				bAddByteBuffer( ( '0' + bTemp[0] ), &sKbdBuff );
+				bAddByteBuffer( ( '0' + bTemp[1] ), &sKbdBuff );
+				bAddByteBuffer( ( '0' + bTemp[2] ), &sKbdBuff );
+				bAddByteBuffer( ( '0' + bTemp[3] ), &sKbdBuff );
+				break;
 			}
 		}
 		case 'Y':
@@ -410,8 +406,7 @@ void ISR_USART0_RX( void )
 				bSaveByte = 0;
 				if( bRecord )
 				{
-					sControlEeprom.wNoBytesUsed = 0;
-					
+					sControlEeprom.wNoBytesUsed = 0;	
 				}
 			}
 			break;
@@ -421,52 +416,50 @@ void ISR_USART0_RX( void )
 			bRxCtrl = 0;
 		}
 	}
-	if( bCarriageExtension )
+	if( bRecord && bSaveByte )
 	{
-		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\r' );
-		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\n' );
-		bUpdateControlStructEeprom();
-	}
-	else if( bRecord && bSaveByte )
-	{
-		bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, bRxByte );
-		bUpdateControlStructEeprom();
+		if( sControlEeprom.wNoBytesUsed < EEPROM_CTRL_ADD )
+		{
+			bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, bRxByte );
+			bUpdateControlStructEeprom();
+		}
+		else
+		{
+			bAddByteBuffer( '*',  &sKbdBuff );
+			bAddByteBuffer( '*',  &sKbdBuff );
+			bAddByteBuffer( 'F',  &sKbdBuff );
+			bAddByteBuffer( 'U',  &sKbdBuff );
+			bAddByteBuffer( 'L',  &sKbdBuff );
+			bAddByteBuffer( 'L',  &sKbdBuff );
+			bAddByteBuffer( '*',  &sKbdBuff );
+			bAddByteBuffer( '*',  &sKbdBuff );
+			bAddByteBuffer( '\r', &sKbdBuff );
+			bAddByteBuffer( '\n', &sKbdBuff );
+		}
 	}
 	//Enable Tx complete interrupt
-	WRITEREG8( UCSR0B, (READREG8(UCSR0B) | UCSR0B_TXCIE0 ));
-	bRemoveByteBuffer( &bRxByte, &sKbdBuff );
-	bSendByte( bRxByte );
-	*/
 	WRITEREG8( UCSR0B, (READREG8(UCSR0B) | UCSR0B_UDRIE0 ));
 }
 
-/* Function to send recorded data back */
-void ISR_USART0_TX( void )
-{
-	WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_TXCIE0) );
-}
-
-/* Function to send echo */
 void ISR_USART0_UDRE( void )
 {
-	/*
 	UINT8 bTxByte;
 	if( bRemoveByteBuffer( &bTxByte, &sKbdBuff ) == 0 )
 	{
-		// Send byte 
+		// Send byte
 		WRITEREG8( UDR0, bTxByte );
 	}
 	else if(( bPlayback ) && ( bValidRecording ))
 	{
 		// Send Recorded byte
-		if( bReadByteEEPROM( wTxAddressEeprom, &bTxByte ) == 0 )
+		if( bReadByteEEPROM( wTxAddressEeprom++, &bTxByte ) == 0 )
 		{
 			// Send byte
 			WRITEREG8( UDR0, bTxByte );
 			// Reached end of saved buffer?
 			if( wTxAddressEeprom >= sControlEeprom.wNoBytesUsed )
 			{
-				// Stop sending buffer 
+				// Stop sending buffer
 				bPlayback = 0;
 			}
 		}
@@ -474,14 +467,8 @@ void ISR_USART0_UDRE( void )
 	else
 	{
 		// Disable Tx complete interrupt
-		WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_TXCIE0) );
+		WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_UDRIE0) );
 	}
-	*/
-	API_IO_bWriteLEDs( 0xA5 );
-	//WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_TXCIE0) );
-	WRITEREG8( UDR0, 'A' );	
-	
-	WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_UDRIE0) );
 }
 
 /*******************************************
