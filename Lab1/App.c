@@ -9,22 +9,18 @@
 /**********************
  * Includes           *
  **********************/
-#warning remove this
-#include "ATMEGA2560.h"
-#include <string.h>
 #include "Port.h"
 #include "API_IO.h"
 #include "API_Timer.h"
+#include "CRB_API.h"
+#include "EEP_API.h"
+#include "SRL_API.h"
 #include "App.h"
 
 /**********************
  * Defines            *
  **********************/
 #define DELAY_VAL   ( 0x1A )
-
-#define EEPROM_SIZE ( 4096 )
-#define EEPROM_CTRL_ADD ( EEPROM_SIZE - sizeof( tsControlEeprom ) )
-#define EEPROM_PAGE_SIZE ( 8 )
 
 /**********************
  * Global variables   *
@@ -38,439 +34,13 @@ U8 bTxFlag;
 U16 wTxAddressEeprom;
 U8 bValidRecording;
 
+CRB_API_tsBuffCirc sKbdBuff;
+
 /**********************
  * Functions          *
  **********************/
  
-/**********************
- * EEPROM              *
- **********************/
-
-UINT8  bEepromBuff[EEPROM_CTRL_ADD];
-UINT16 wNoEepromBuff;
-
-tsControlEeprom sControlEepromBackup;
-tsControlEeprom sControlEeprom;
-
-void vInitCircularBuff( tsBuffCirc *psCircularBuff )
-{
-	memset( psCircularBuff->abBuffer, 0, sizeof( psCircularBuff->abBuffer));
-	psCircularBuff->wMask = sizeof( psCircularBuff->abBuffer) - 1;
-}
  
-UINT8 bAddByteBuffer( UINT8 bByte, tsBuffCirc *psCircularBuff )
-{
-	/* Is there space in the buffer? */
-    if ( ( ( psCircularBuff->wRemoval - 1 ) & psCircularBuff->wMask ) != psCircularBuff->wInsertion )	
-	{
-		/* Add byte */
-		psCircularBuff->abBuffer[psCircularBuff->wInsertion] = bByte;
-		/* Increment pointer */
-		psCircularBuff->wInsertion = (psCircularBuff->wInsertion + 1) & psCircularBuff->wMask;
-		return 0;
-	}
-	return 1;	
-}
- 
-UINT8 bRemoveByteBuffer( UINT8 *pByte, tsBuffCirc *psCircularBuff )
-{
-	/* Is buffer empty? */
-	if( psCircularBuff->wInsertion == psCircularBuff->wRemoval )
-	{
-		return 1;
-	}
-	/* Read byte */
-	*pByte = psCircularBuff->abBuffer[psCircularBuff->wRemoval];
-	/* Increment pointer */
-	psCircularBuff->wRemoval = (psCircularBuff->wRemoval + 1) & psCircularBuff->wMask;
-	return 0;
-}
-
-UINT8 bReadControlStructEeprom( void )
-{
-	if( bReadBufferEEPROM( EEPROM_CTRL_ADD, (UINT8 *) &sControlEepromBackup, sizeof( tsControlEeprom )))
-	{
-		return 1;
-	}
-	if( bCalcCRC( (UINT8 *) &sControlEepromBackup, sizeof( tsControlEeprom ) ) )
-	{
-		return 1;
-	}
-	if( sControlEepromBackup.wNoBytesUsed == 0 )
-	{
-		return 1;
-	}	
-	sControlEeprom.wNoBytesUsed = sControlEepromBackup.wNoBytesUsed;
-	return 0;
-}
-
-UINT8 bWriteControlStructEeprom( void )
-{
-	return bWriteBufferEEPROM( EEPROM_CTRL_ADD, (UINT8 *) &sControlEepromBackup, sizeof( sControlEepromBackup ) );
-}
-
-UINT8 bCalcCRC( UINT8 *abBuff, UINT8 bSizeBuff )
-{
-	UINT8 bCRC = 0;
-	UINT8 bIndex = 0;
-	while( bIndex < bSizeBuff )
-	{
-		bCRC ^= abBuff[bIndex++];
-	}
-	return bCRC;
-}
-
-UINT8 bUpdateControlStructEeprom( void )
-{
-	/* Control Structure changed? */
-	if( sControlEeprom.wNoBytesUsed != sControlEepromBackup.wNoBytesUsed )
-	{
-		/* Update size used in EEPROM */
-		sControlEepromBackup.wNoBytesUsed = sControlEeprom.wNoBytesUsed;
-		/* Calculate value of CRC */
-		sControlEepromBackup.bCRC = bCalcCRC( (UINT8 *)&sControlEepromBackup.wNoBytesUsed, 
-		                                      sizeof( sControlEepromBackup.wNoBytesUsed ) );
-		/* Write new value to control page */
-		return bWriteControlStructEeprom( );
-	}
-	return 0;
-}
-
-UINT8 bReadByteEEPROM( UINT16 wAddress, UINT8 *bByte )
-{
-	/* Test limit */
-	if( wAddress > EEPROM_SIZE - 1 )
-	{		
-		return 1;
-	}
-	/* Wait for completion of previous write */
-	while( READREG8( EECR ) & EECR_EEPE);
-	/* Set up address register */
-	WRITEREG16( EEAR, wAddress );
-	/* Start EEPROM read by writing EERE */
-	WRITEREG8( EECR, READREG8( EECR ) | EECR_EERE );
-	/* Return data from Data Register */
-	*bByte = READREG8( EEDR );
-	return 0;
-}
-
-UINT8 bReadBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes )
-{
-	UINT16 i;
-	for( i = 0; i < wNrBytes; i++ )
-	{
-		bReadByteEEPROM( wStartAddress, &(abBuff[i]) );
-		wStartAddress++;
-	}
-	return 0;
-}
-
-UINT8 bWriteByteEEPROM( UINT16 wAddress, UINT8 bByte )
-{
-	/* Test limit */
-	if( wAddress > EEPROM_SIZE - 1 )
-	{		
-		return 1;
-	}
-	/* Wait for completion of previous write */
-	while( READREG8( EECR ) & EECR_EEPE );
-	/* Set up address and Data Registers */
-	WRITEREG16( EEAR, wAddress );
-	WRITEREG8( EEDR, bByte);
-	/* Make sure that the set to EEMPE and EEPE occur within 4 clock cycles */
-	/* Otherwise write will fail */
-	PORT_bDisableInterrupts();
-	/* Write logical one to EEMPE */
-	ORREG8( EECR, EECR_EEMPE);
-	
-	/* Start EEPROM write by setting EEPE */
-	ORREG8( EECR, EECR_EEPE );
-	PORT_bEnableInterrupts();
-	return 0;
-}
-
-UINT8 bWriteBufferEEPROM( UINT16 wStartAddress, UINT8 *abBuff, UINT16 wNrBytes )
-{
-	UINT16 i;
-	for( i = 0; i < wNrBytes; i++ )
-	{
-		bWriteByteEEPROM( wStartAddress, abBuff[i] );
-		wStartAddress++;
-	}
-	return 0;
-}
-
-UINT8 bInitEeprom( void )
-{
-	wNoEepromBuff = 0;
-	return 0;
-}
-
-/**********************
- * USART              *
- **********************/
- 
-tsBuffCirc sKbdBuff;
- 
-UINT16 wCalcBaud ( UINT16 wBaudRate)
-{
-	UINT32 bTemp = CPU_OSC;
-	bTemp = bTemp / 8;
-	bTemp = bTemp / wBaudRate;
-	bTemp--;
-	return bTemp;
-}
-
-UINT8 bInitUart( UINT16 wBaudRate, UINT8 bNoDataBits, UINT8 bNoStop, URT_ePARITY eParity )
-{
-	/* App Level */
-	bPlayback = 0;
-	bRecord = 0;
-	bTxFlag = 0;
-	
-	UINT8 bUCSRC;
-	/* Parameter range checking */
-	if (( wBaudRate < URT_MIN_BAUD ) || 
-	    ( wBaudRate > URT_MAX_BAUD)) /* Limits for 1MHz clock */
-	{
-		return 1;
-	}
-	if (( bNoDataBits < URT_MIN_DATA_BITS ) || 
-	    ( bNoDataBits > URT_MAX_DATA_BITS ))
-	{
-		return 1;
-	}
-	if (( bNoStop < URT_MIN_STOP_BITS ) ||
-	    ( bNoStop > URT_MAX_STOP_BITS ))
-	{
-		return 1;
-	}
-	if (( bNoStop < URT_MIN_STOP_BITS ) ||
-	( bNoStop > URT_MAX_STOP_BITS ))
-	{
-		return 1;
-	}
-	
-	/* Set baud rate */	WRITEREG16( UBRR0, wCalcBaud( wBaudRate ) );
-	
-	/* Calculate UCSRxC value */
-	bUCSRC = eParity << 4;
-	bUCSRC |= ( bNoStop - 1 ) << 3;
-	if( bNoDataBits > 8 )
-	{
-		/* Enable receiver, transmitter, and 9 bits */
-		WRITEREG8( UCSR0B, UCSR0B_RXEN0 | UCSR0B_TXEN0 | UCSR0B_UCSZ02 );
-		bUCSRC |= UCSR0C_UCSZ01 | UCSR0C_UCSZ00;
-	}
-	else
-	{
-		/* Enable uart tx rx and rx interrupts. */
-		WRITEREG8( UCSR0B, UCSR0B_RXEN0 | UCSR0B_TXEN0 | UCSR0B_RXCIE0 );
-		bUCSRC |= (bNoDataBits - 5) << 1;
-	}
-	WRITEREG8( UCSR0A, UCSR0A_U2X0 );
-	WRITEREG8( UCSR0C, bUCSRC );
-	return 0;
-}
-
-UINT8 bSendStr( SINT8 *abBuff )
-{
-	UINT8 bNrBytesSent = 0;
-	UINT8 bRet;
-	while( bNrBytesSent < strlen( (char *)abBuff ) )
-	{
-		bRet = bSendByte( abBuff[bNrBytesSent++] );
-		if ( bRet)
-		{
-			return bRet;
-		}
-	}
-	return 0;
-}
-
-UINT8 bSendByte( UINT8 bByte )
-{
-	/* Wait for empty buffer */
-	while( ! ( READREG8( UCSR0A ) & UCSR0A_UDRE0 ));
-	/* Send byte */
-	WRITEREG8( UDR0, bByte );
-	return 0;
-}
-
-UINT8 bRecvByte( void )
-{
-	/* Wait for data to arrive */
-	while( ! (READREG8( UCSR0A ) & UCSR0A_RXC0 ));
-	/* Receive byte */
-	return READREG8( UDR0 );
-}
-
-void ISR_USART0_RX( void )
-{
-	static UINT8 bRxCtrl = 0;
-	UINT8 bSaveByte = 1;
-	
-	// Get byte
-	UINT8 bRxByte = READREG8( UDR0 );
-
-	// Add byte to Keyboard Buffer 
-	bAddByteBuffer( bRxByte, &sKbdBuff );
-	
-	// Check what needs to be done for this byte 
-	switch ( bRxByte )
-	{
-		// Carriage feed extension characters
-		case '\r':
-		case '\n':
-		{
-			bAddByteBuffer( '\r', &sKbdBuff );
-			bAddByteBuffer( '\n', &sKbdBuff );
-			if( bRecord )
-			{
-				if( sControlEeprom.wNoBytesUsed < EEPROM_CTRL_ADD )
-				{
-					bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\r' );
-					bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, '\n' );
-					bUpdateControlStructEeprom();
-				}
-			}
-			bRxCtrl = 0;
-			break;
-		}
-		case '^':
-		{
-			bRxCtrl = 1;
-			bSaveByte = 0;
-			break;
-		}
-		case BACKSPACE:
-		{
-			if( sControlEeprom.wNoBytesUsed )
-			{
-				sControlEeprom.wNoBytesUsed--;
-				bUpdateControlStructEeprom();
-			}
-			bSaveByte = 0;
-			bRxCtrl = 0;
-		}
-		case 'N':
-		case 'n':
-		{
-			if( bRxCtrl )
-			{
-				U16 wNrBytes = sControlEeprom.wNoBytesUsed;
-				U8 bTemp[4];
-				bSaveByte = 0;
-				// Unit
-				bTemp[3] = wNrBytes % 10;
-				wNrBytes = wNrBytes - bTemp[3];
-				// Tens
-				wNrBytes = wNrBytes / 10;
-				bTemp[2] = wNrBytes % 10;
-				wNrBytes = wNrBytes - bTemp[2];
-				// Hundreds
-				wNrBytes = wNrBytes / 10;
-				bTemp[1] = wNrBytes % 10;
-				wNrBytes = wNrBytes - bTemp[1];
-				// Thousands
-				wNrBytes = wNrBytes / 10;
-				bTemp[0] = wNrBytes % 10;
-				wNrBytes = wNrBytes - bTemp[0];
-				
-				bAddByteBuffer( ( '0' + bTemp[0] ), &sKbdBuff );
-				bAddByteBuffer( ( '0' + bTemp[1] ), &sKbdBuff );
-				bAddByteBuffer( ( '0' + bTemp[2] ), &sKbdBuff );
-				bAddByteBuffer( ( '0' + bTemp[3] ), &sKbdBuff );
-				break;
-			}
-		}
-		case 'Y':
-		case 'y':
-		{
-			if( bRxCtrl )
-			{
-				bPlayback = 1;
-				bRxCtrl = 0;
-				bSaveByte = 0;
-				wTxAddressEeprom = 0;
-			}
-			break;
-		}
-		case 'Z':
-		case 'z':
-		{
-			if( bRxCtrl )
-			{
-				bRecord = bRecord ^ 1;
-				bRxCtrl = 0;
-				bSaveByte = 0;
-				if( bRecord )
-				{
-					sControlEeprom.wNoBytesUsed = 0;	
-				}
-			}
-			break;
-		}			
-		default:
-		{
-			bRxCtrl = 0;
-		}
-	}
-	if( bRecord && bSaveByte )
-	{
-		if( sControlEeprom.wNoBytesUsed < EEPROM_CTRL_ADD )
-		{
-			bWriteByteEEPROM( sControlEeprom.wNoBytesUsed++, bRxByte );
-			bUpdateControlStructEeprom();
-		}
-		else
-		{
-			bAddByteBuffer( '*',  &sKbdBuff );
-			bAddByteBuffer( '*',  &sKbdBuff );
-			bAddByteBuffer( 'F',  &sKbdBuff );
-			bAddByteBuffer( 'U',  &sKbdBuff );
-			bAddByteBuffer( 'L',  &sKbdBuff );
-			bAddByteBuffer( 'L',  &sKbdBuff );
-			bAddByteBuffer( '*',  &sKbdBuff );
-			bAddByteBuffer( '*',  &sKbdBuff );
-			bAddByteBuffer( '\r', &sKbdBuff );
-			bAddByteBuffer( '\n', &sKbdBuff );
-		}
-	}
-	//Enable Tx complete interrupt
-	WRITEREG8( UCSR0B, (READREG8(UCSR0B) | UCSR0B_UDRIE0 ));
-}
-
-void ISR_USART0_UDRE( void )
-{
-	UINT8 bTxByte;
-	if( bRemoveByteBuffer( &bTxByte, &sKbdBuff ) == 0 )
-	{
-		// Send byte
-		WRITEREG8( UDR0, bTxByte );
-	}
-	else if(( bPlayback ) && ( bValidRecording ))
-	{
-		// Send Recorded byte
-		if( bReadByteEEPROM( wTxAddressEeprom++, &bTxByte ) == 0 )
-		{
-			// Send byte
-			WRITEREG8( UDR0, bTxByte );
-			// Reached end of saved buffer?
-			if( wTxAddressEeprom >= sControlEeprom.wNoBytesUsed )
-			{
-				// Stop sending buffer
-				bPlayback = 0;
-			}
-		}
-	}
-	else
-	{
-		// Disable Tx complete interrupt
-		WRITEREG8( UCSR0B, (READREG8(UCSR0B) & ~UCSR0B_UDRIE0) );
-	}
-}
-
 /*******************************************
  * void vTimerInterrupt( void )
  * Brief: Application callback function
@@ -512,6 +82,173 @@ void vTimerInterrupt( void )
 	API_IO_bWriteLEDs( bLEDS );
 }
 
+void APP_SRL_Rx( void )
+{
+	static UINT8 bRxCtrl = 0;
+	UINT8 bSaveByte = 1;
+
+	// Get byte
+	UINT8 bRxByte = SRL_bRecvByte();
+
+	// Add byte to Keyboard Buffer
+	CRB_API_bAddByteBuffer( bRxByte, &sKbdBuff );
+
+	// Check what needs to be done for this byte
+	switch ( bRxByte )
+	{
+		// Carriage feed extension characters
+		case '\r':
+		case '\n':
+		{
+			CRB_API_bAddByteBuffer( '\r', &sKbdBuff );
+			CRB_API_bAddByteBuffer( '\n', &sKbdBuff );
+			if( bRecord )
+			{
+				if( EEP_API_sControlEeprom.wNoBytesUsed < EEPROM_CTRL_ADD )
+				{
+					EEP_API_bWriteByteEEPROM( EEP_API_sControlEeprom.wNoBytesUsed++, '\r' );
+					EEP_API_bWriteByteEEPROM( EEP_API_sControlEeprom.wNoBytesUsed++, '\n' );
+					EEP_API_bUpdateControlStructEeprom();
+				}
+			}
+			bRxCtrl = 0;
+			break;
+		}
+		case '^':
+		{
+			bRxCtrl = 1;
+			bSaveByte = 0;
+			break;
+		}
+		case BACKSPACE:
+		{
+			if( EEP_API_sControlEeprom.wNoBytesUsed )
+			{
+				EEP_API_sControlEeprom.wNoBytesUsed--;
+				EEP_API_bUpdateControlStructEeprom();
+			}
+			bSaveByte = 0;
+			bRxCtrl = 0;
+		}
+		case 'N':
+		case 'n':
+		{
+			if( bRxCtrl )
+			{
+				UINT16 wNrBytes = EEP_API_sControlEeprom.wNoBytesUsed;
+				UINT8 bTemp[4];
+				bSaveByte = 0;
+				// Unit
+				bTemp[3] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[3];
+				// Tens
+				wNrBytes = wNrBytes / 10;
+				bTemp[2] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[2];
+				// Hundreds
+				wNrBytes = wNrBytes / 10;
+				bTemp[1] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[1];
+				// Thousands
+				wNrBytes = wNrBytes / 10;
+				bTemp[0] = wNrBytes % 10;
+				wNrBytes = wNrBytes - bTemp[0];
+
+				CRB_API_bAddByteBuffer( ( '0' + bTemp[0] ), &sKbdBuff );
+				CRB_API_bAddByteBuffer( ( '0' + bTemp[1] ), &sKbdBuff );
+				CRB_API_bAddByteBuffer( ( '0' + bTemp[2] ), &sKbdBuff );
+				CRB_API_bAddByteBuffer( ( '0' + bTemp[3] ), &sKbdBuff );
+				break;
+			}
+		}
+		case 'Y':
+		case 'y':
+		{
+			if( bRxCtrl )
+			{
+				bPlayback = 1;
+				bRxCtrl = 0;
+				bSaveByte = 0;
+				wTxAddressEeprom = 0;
+			}
+			break;
+		}
+		case 'Z':
+		case 'z':
+		{
+			if( bRxCtrl )
+			{
+				bRecord = bRecord ^ 1;
+				bRxCtrl = 0;
+				bSaveByte = 0;
+				if( bRecord )
+				{
+					EEP_API_sControlEeprom.wNoBytesUsed = 0;
+				}
+			}
+			break;
+		}
+		default:
+		{
+			bRxCtrl = 0;
+		}
+	}
+	if( bRecord && bSaveByte )
+	{
+		if( EEP_API_sControlEeprom.wNoBytesUsed < EEPROM_CTRL_ADD )
+		{
+			EEP_API_bWriteByteEEPROM( EEP_API_sControlEeprom.wNoBytesUsed++, bRxByte );
+			EEP_API_bUpdateControlStructEeprom();
+		}
+		else
+		{
+			CRB_API_bAddByteBuffer( '*',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( '*',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( 'F',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( 'U',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( 'L',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( 'L',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( '*',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( '*',  &sKbdBuff );
+			CRB_API_bAddByteBuffer( '\r', &sKbdBuff );
+			CRB_API_bAddByteBuffer( '\n', &sKbdBuff );
+		}
+	}
+	//Enable Tx interrupt
+	SRL_vEnableTx();
+}
+
+void APP_SRL_Tx( void )
+{
+	UINT8 bTxByte;
+	if( CRB_API_bRemoveByteBuffer( &bTxByte, &sKbdBuff ) == 0 )
+	{
+		// Send byte
+		SRL_vSendByte( bTxByte );
+	}
+	else if(( bPlayback ) && ( bValidRecording ))
+	{
+		// Send Recorded byte
+		if( EEP_API_bReadByteEEPROM( wTxAddressEeprom++, &bTxByte ) == 0 )
+		{
+			// Send byte
+			SRL_vSendByte( bTxByte );
+			// Reached end of saved buffer?
+			if( wTxAddressEeprom >= EEP_API_sControlEeprom.wNoBytesUsed )
+			{
+				// Stop sending buffer
+				bPlayback = 0;
+			}
+		}
+	}
+	else
+	{
+		// Disable Tx interrupt
+		SRL_vDisableTx();
+	}
+}
+
+
 void delay(unsigned int val)
 {
 	volatile unsigned int temp;
@@ -521,7 +258,6 @@ void delay(unsigned int val)
 		for (temp2 = 0; temp2 < val; temp2 ++) ;
 }
 
-
 /*******************************************
  * int main(void)                          
  * Brief: The main function                
@@ -530,22 +266,23 @@ void delay(unsigned int val)
  *******************************************/
 int main(void)
 {
-	vInitCircularBuff( &sKbdBuff );
+	//U8 bRxCtrl = 0;
+	//U8 bRecord = 0;
+	//U8 bPlayback = 0;
+	U8 bValidRecording = 0;
+	//U8 bSaveByte;
+	//U8 bTxByte;
+	CRB_API_vInitCircularBuff( &sKbdBuff );
 	/* Setup UART for 9600, 8 bits, one stop, no parity bit */
-	if( bInitUart( 9600, 8, 1, URT_NO_PARITY ) == 0 )
-	{
-		API_IO_bInitIO();
-		API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
-	}
-	else
-	{
-		API_IO_bWriteLEDs( 1 );
-	}
-	bValidRecording = !bReadControlStructEeprom();
+	SRL_vInitUart( 9600, 8, 1, URT_NO_PARITY );
+	API_IO_bInitIO();
+	API_Timer_bInitializeTimer( vTimerInterrupt, DELAY_VAL );
+
+	bValidRecording = !EEP_API_bReadControlStructEeprom();
 	if( !bValidRecording )
 	{
-		sControlEeprom.wNoBytesUsed = 0;
-		bUpdateControlStructEeprom();
+		EEP_API_sControlEeprom.wNoBytesUsed = 0;
+		EEP_API_bUpdateControlStructEeprom();
 	}
 	PORT_bEnableInterrupts();
 	while( 1 )
@@ -555,4 +292,3 @@ int main(void)
     /* Be nice to the compiler */
 	return 0;
 }
-
