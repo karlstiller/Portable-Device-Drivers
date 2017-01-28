@@ -6,8 +6,8 @@
  */
 /* THIS FILE HAS NO PORTABLITY dependencies and should not have to    */
 /* change for a different environment.                                */
-#include "Port.h"
-#include "PORT_IO.h"
+#include "PRT_API.h"
+#include "PRT_IO.h"
 
 /*******************************************
  * UINT8 PRT_IO_bInitIO( void )

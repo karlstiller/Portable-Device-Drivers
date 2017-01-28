@@ -5,7 +5,7 @@
  *  Author: karl.stiller
  */
 #include "ATMEGA2560.h" 
-#include "Port.h"
+#include "PRT_API.h"
 #include "EEP_PRT.h"
 #include "EEP_API.h"
 #include "CRB_API.h"
@@ -42,12 +42,12 @@ UINT8 EEP_PRT_bWriteByteEEPROM( UINT16 wAddress, UINT8 bByte )
 	WRITEREG8( EEDR, bByte);
 	/* Make sure that the set to EEMPE and EEPE occur within 4 clock cycles */
 	/* Otherwise write will fail */
-	PORT_bDisableInterrupts();
+	PRT_bDisableInterrupts();
 	/* Write logical one to EEMPE */
 	ORREG8( EECR, EECR_EEMPE);
 	
 	/* Start EEPROM write by setting EEPE */
 	ORREG8( EECR, EECR_EEPE );
-	PORT_bEnableInterrupts();
+	PRT_bEnableInterrupts();
 	return 0;
 }

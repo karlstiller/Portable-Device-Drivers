@@ -26,8 +26,8 @@
 /* cli – disables interrupts */
 #define cli() __asm__ __volatile__ ("cli" ::)
 
-UINT8 PORT_bEnableInterrupts( void );
-UINT8 PORT_bDisableInterrupts( void );
+UINT8 PRT_bEnableInterrupts( void );
+UINT8 PRT_bDisableInterrupts( void );
 
 #endif /* API_IO_H_ */
 

@@ -10,8 +10,8 @@
 /**********************
  * Includes           *
  **********************/
-#include "Port.h"
-#include "PORT_Timer.h"
+#include "PRT_API.h"
+#include "PRT_Timer.h"
 
 /**********************/
 /* Functions          */

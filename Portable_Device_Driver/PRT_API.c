@@ -7,16 +7,16 @@
  *        in this file is where the os/complier dependencies can occur
  */
 
-#include "Port.h"
+#include "PRT_API.h"
 
-UINT8 PORT_bEnableInterrupts( void )
+UINT8 PRT_bEnableInterrupts( void )
 {
 	/* Enable Global Interrupts */
 	sei();
 	return 0;
 }
 
-UINT8 PORT_bDisableInterrupts( void )
+UINT8 PRT_bDisableInterrupts( void )
 {
 	/* Disable Global Interrupts */
 	cli();
